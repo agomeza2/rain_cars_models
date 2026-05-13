@@ -1,0 +1,8 @@
+*.nix
+# virtual environments
+venv/
+.venv/
+env/
+.env/
+*.wav
+*.mp3
