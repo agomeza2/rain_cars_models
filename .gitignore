@@ -6,3 +6,4 @@ env/
 .env/
 *.wav
 *.mp3
+*.pth

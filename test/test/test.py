@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import torchaudio
 import torch.nn.functional as F
+import torchaudio
 
 from transformers import Wav2Vec2Model
 
@@ -10,11 +10,15 @@ from transformers import Wav2Vec2Model
 # =========================================================
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 SAMPLE_RATE = 16000
+AUDIO_DURATION = 5  # segundos
+TARGET_LENGTH = SAMPLE_RATE * AUDIO_DURATION
+
 CLASSES = ["rain", "car"]
 
 # =========================================================
-# MODELOS (MISMO QUE TRAINING)
+# CNN MODEL
 # =========================================================
 
 class CNN1D(nn.Module):
@@ -25,25 +29,33 @@ class CNN1D(nn.Module):
 
         layers = []
 
-        in_ch = 1
+        in_channels = 1
 
-        for ch in channels:
+        for out_channels in channels:
 
-            layers.append(
-                nn.Conv1d(in_ch, ch, kernel_size=5, stride=2, padding=2)
-            )
+            layers.extend([
+                nn.Conv1d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=5,
+                    stride=2,
+                    padding=2
+                ),
 
-            layers.append(nn.BatchNorm1d(ch))
-            layers.append(nn.ReLU())
-            layers.append(nn.MaxPool1d(2))
+                nn.BatchNorm1d(out_channels),
 
-            in_ch = ch
+                nn.ReLU(),
+
+                nn.MaxPool1d(2)
+            ])
+
+            in_channels = out_channels
 
         self.features = nn.Sequential(*layers)
 
         self.pool = nn.AdaptiveAvgPool1d(1)
 
-        self.classifier = nn.Linear(channels[-1], 2)
+        self.classifier = nn.Linear(channels[-1], len(CLASSES))
 
     def forward(self, x):
 
@@ -57,6 +69,9 @@ class CNN1D(nn.Module):
 
         return self.classifier(x)
 
+# =========================================================
+# WAV2VEC2 MODEL
+# =========================================================
 
 class Wav2Vec2Classifier(nn.Module):
 
@@ -68,52 +83,56 @@ class Wav2Vec2Classifier(nn.Module):
             "facebook/wav2vec2-base"
         )
 
-        self.classifier = nn.Linear(768, 2)
+        self.classifier = nn.Linear(768, len(CLASSES))
 
     def forward(self, x):
 
-        out = self.wav2vec(x)
+        outputs = self.wav2vec(x)
 
-        hidden = out.last_hidden_state
+        hidden_states = outputs.last_hidden_state
 
-        pooled = hidden.mean(dim=1)
+        pooled = hidden_states.mean(dim=1)
 
         return self.classifier(pooled)
 
 # =========================================================
-# AUDIO PREPROCESS
+# AUDIO PREPROCESSING
 # =========================================================
 
-def preprocess_audio(path):
+def preprocess_audio(audio_path):
 
-    waveform, sr = torchaudio.load(path)
+    waveform, sample_rate = torchaudio.load(audio_path)
 
+    # Convertir a mono
     waveform = waveform.mean(dim=0)
 
-    if sr != SAMPLE_RATE:
+    # Resample
+    if sample_rate != SAMPLE_RATE:
 
-        resampler = torchaudio.transforms.Resample(sr, SAMPLE_RATE)
+        resampler = torchaudio.transforms.Resample(
+            sample_rate,
+            SAMPLE_RATE
+        )
 
         waveform = resampler(waveform)
 
-    target_length = SAMPLE_RATE * 5
+    # Pad o trim
+    if waveform.shape[0] < TARGET_LENGTH:
 
-    if waveform.shape[0] < target_length:
+        padding = TARGET_LENGTH - waveform.shape[0]
 
-        pad = target_length - waveform.shape[0]
-
-        waveform = F.pad(waveform, (0, pad))
+        waveform = F.pad(waveform, (0, padding))
 
     else:
 
-        waveform = waveform[:target_length]
+        waveform = waveform[:TARGET_LENGTH]
 
     return waveform
 
 
-def preprocess_wav2vec(path):
+def preprocess_wav2vec(audio_path):
 
-    waveform = preprocess_audio(path)
+    waveform = preprocess_audio(audio_path)
 
     return waveform.unsqueeze(0)
 
@@ -125,7 +144,9 @@ def load_cnn(model_path, config):
 
     model = CNN1D(config)
 
-    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+    model.load_state_dict(
+        torch.load(model_path, map_location=DEVICE)
+    )
 
     model.to(DEVICE)
 
@@ -138,7 +159,9 @@ def load_wav2vec(model_path):
 
     model = Wav2Vec2Classifier()
 
-    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+    model.load_state_dict(
+        torch.load(model_path, map_location=DEVICE)
+    )
 
     model.to(DEVICE)
 
@@ -147,62 +170,82 @@ def load_wav2vec(model_path):
     return model
 
 # =========================================================
-# PREDICT
+# PREDICTION
 # =========================================================
 
-def predict_cnn(model, audio):
-
-    with torch.no_grad():
-
-        audio = audio.unsqueeze(0).to(DEVICE)
-
-        out = model(audio)
-
-        pred = torch.argmax(out, dim=1).item()
-
-    return CLASSES[pred]
-
-
-def predict_wav2vec(model, audio):
+def predict(model, audio):
 
     with torch.no_grad():
 
         audio = audio.to(DEVICE)
 
-        out = model(audio)
+        logits = model(audio)
 
-        pred = torch.argmax(out, dim=1).item()
+        probabilities = F.softmax(logits, dim=1)
 
-    return CLASSES[pred]
+        confidence, prediction = torch.max(
+            probabilities,
+            dim=1
+        )
+
+        predicted_class = CLASSES[prediction.item()]
+
+        confidence_percent = confidence.item() * 100
+
+        all_probabilities = {
+            CLASSES[i]: f"{probabilities[0][i].item() * 100:.2f}%"
+            for i in range(len(CLASSES))
+        }
+
+        return {
+            "prediction": predicted_class,
+            "confidence": f"{confidence_percent:.2f}%",
+            "probabilities": all_probabilities
+        }
 
 # =========================================================
-# MAIN TEST
+# MAIN
 # =========================================================
 
 if __name__ == "__main__":
 
-    audio_path = "test.wav"
+    audio_path = (
+        "/kaggle/input/datasets/"
+        "alexandergomez12/"
+        "enviromental-rain-and-car-sounds/"
+        "test/"
+        "2022-11-21 23-33-00_6.22_15.93_98.0_1.773_1.292_hiv00099_60_road(concrete).mp3"
+    )
 
     print("\n=== LOADING MODELS ===")
 
-    cnn_small = load_cnn("../train/CNN1D_SMALL.pth", [16, 32, 64])
+    cnn_small = load_cnn(
+        "../training/CNN1D_SMALL.pth",
+        [16, 32, 64]
+    )
 
-    cnn_deep = load_cnn("../train/CNN1D_DEEP.pth", [16, 32, 64, 128])
+    cnn_deep = load_cnn(
+        "../training/CNN1D_DEEP.pth",
+        [16, 32, 64, 128]
+    )
 
-    wav2vec = load_wav2vec("../train/WAV2VEC2.pth")
+    wav2vec = load_wav2vec(
+        "../training/WAV2VEC2.pth"
+    )
 
-    # AUDIO
+    print("\n=== PREPROCESSING AUDIO ===")
 
-    audio = preprocess_audio(audio_path)
+    audio_cnn = preprocess_audio(audio_path).unsqueeze(0)
 
     audio_w2v = preprocess_wav2vec(audio_path)
 
-    # PREDICTIONS
-
     print("\n=== PREDICTIONS ===")
 
-    print("CNN_SMALL :", predict_cnn(cnn_small, audio))
+    print("\nCNN_SMALL")
+    print(predict(cnn_small, audio_cnn))
 
-    print("CNN_DEEP  :", predict_cnn(cnn_deep, audio))
+    print("\nCNN_DEEP")
+    print(predict(cnn_deep, audio_cnn))
 
-    print("WAV2VEC2  :", predict_wav2vec(wav2vec, audio_w2v))
+    print("\nWAV2VEC2")
+    print(predict(wav2vec, audio_w2v))
