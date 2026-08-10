@@ -17,7 +17,7 @@ from transformers import Wav2Vec2Model
 
 DATASET_PATH = "../dataset"
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 44000
 
 BATCH_SIZE = 2
 EPOCHS = 5

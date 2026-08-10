@@ -210,11 +210,7 @@ def predict(model, audio):
 if __name__ == "__main__":
 
     audio_path = (
-        "/kaggle/input/datasets/"
-        "alexandergomez12/"
-        "enviromental-rain-and-car-sounds/"
-        "test/"
-        "2022-11-21 23-33-00_6.22_15.93_98.0_1.773_1.292_hiv00099_60_road(concrete).mp3"
+      "St-james.mp3"
     )
 
     print("\n=== LOADING MODELS ===")
