@@ -210,7 +210,7 @@ def predict(model, audio):
 if __name__ == "__main__":
 
     audio_path = (
-      "St-james.mp3"
+      "Lluvia_techo_1.m4a"
     )
 
     print("\n=== LOADING MODELS ===")

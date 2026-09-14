@@ -1,0 +1,59 @@
+# =============================================================================
+#  Levanta toda la infraestructura de la base con un solo comando:
+#      docker compose up -d
+#
+#  Dos servicios:
+#    db      -> PostgreSQL 16 con el esquema del proyecto
+#    adminer -> cliente web para mirar las tablas sin instalar nada
+# =============================================================================
+
+services:
+
+  db:
+    build: .                       # construye el Dockerfile de esta carpeta
+    image: audios-db:1.0
+    container_name: audios-db
+
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+
+    ports:
+      # "5433:5432"  ->  5433 es el puerto EN TU WINDOWS, 5432 el de adentro
+      #                  del contenedor.
+      # Se usa 5433 porque ya tienes un PostgreSQL nativo ocupando el 5432.
+      # Dos programas no pueden escuchar el mismo puerto; si dejáramos
+      # "5432:5432" el contenedor no arrancaría.
+      - "5433:5432"
+
+    volumes:
+      # Sin esto, `docker compose down` borraría la base entera. El volumen es
+      # un disco que sobrevive al contenedor: el contenedor es desechable, los
+      # datos no.
+      - pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      # Docker no sabe cuándo Postgres terminó de arrancar; solo sabe que el
+      # proceso está vivo. pg_isready pregunta de verdad "¿aceptas consultas?".
+      # Es solo informativo (docker compose ps muestra "healthy"); no bloquea a
+      # nadie: adminer se conecta a la base cuando le das login, no al arrancar.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:4
+    container_name: audios-adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db   # dentro de la red de compose, "db" es el host
+    restart: unless-stopped
+
+volumes:
+  pgdata:

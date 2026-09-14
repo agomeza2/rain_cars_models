@@ -1,0 +1,584 @@
+<title>Puesta en marcha CABALAS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;700&display=swap">
+
+<style>
+:root{
+  --ground:#EDF1EA;
+  --surface:#FAFBF7;
+  --sunk:#E3E9DF;
+  --ink:#16231D;
+  --muted:#59685F;
+  --faint:#8A9990;
+  --line:#D2DACC;
+  --line-soft:#E1E7DC;
+  --accent:#2C6B4A;
+  --accent-soft:#DCE9E0;
+  --signal:#A85F13;
+  --signal-soft:#F3E6D3;
+  --danger:#94382A;
+  --shadow:0 1px 0 rgba(22,35,29,.05);
+
+  --f-display:"Fraunces",Georgia,"Times New Roman",serif;
+  --f-body:"Source Sans 3",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E1512;
+    --surface:#151E19;
+    --sunk:#0A100D;
+    --ink:#E2E9E0;
+    --muted:#95A69A;
+    --faint:#6E8076;
+    --line:#28352D;
+    --line-soft:#1F2A24;
+    --accent:#71B98D;
+    --accent-soft:#1B2C22;
+    --signal:#DDA35B;
+    --signal-soft:#2A2115;
+    --danger:#D08370;
+    --shadow:0 1px 0 rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E1512;
+  --surface:#151E19;
+  --sunk:#0A100D;
+  --ink:#E2E9E0;
+  --muted:#95A69A;
+  --faint:#6E8076;
+  --line:#28352D;
+  --line-soft:#1F2A24;
+  --accent:#71B98D;
+  --accent-soft:#1B2C22;
+  --signal:#DDA35B;
+  --signal-soft:#2A2115;
+  --danger:#D08370;
+  --shadow:0 1px 0 rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:16.5px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+.page{max-width:1120px;margin:0 auto;padding:0 24px 96px}
+
+/* ---------- masthead ---------- */
+.masthead{padding:56px 0 32px;border-bottom:1px solid var(--line)}
+.eyebrow{
+  font-family:var(--f-mono);font-size:11.5px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px
+}
+.masthead h1{
+  font-family:var(--f-display);font-weight:700;
+  font-size:clamp(2.1rem,4.6vw,3.1rem);line-height:1.05;letter-spacing:-.015em;
+  margin:0 0 14px;text-wrap:balance;
+}
+.lede{margin:0;max-width:62ch;color:var(--muted);font-size:1.06rem}
+
+.specs{
+  display:flex;flex-wrap:wrap;gap:0 34px;margin-top:26px;
+  font-family:var(--f-mono);font-size:12.5px;color:var(--faint);
+  font-variant-numeric:tabular-nums;
+}
+.specs b{color:var(--ink);font-weight:600}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:190px 1fr;gap:56px;align-items:start}
+@media (max-width:880px){.shell{grid-template-columns:1fr;gap:0}}
+
+.rail{position:sticky;top:28px;padding-top:44px}
+@media (max-width:880px){.rail{display:none}}
+.rail-h{
+  font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--faint);margin:0 0 14px
+}
+.rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.rail a{
+  display:flex;gap:9px;align-items:baseline;padding:5px 8px;margin-left:-8px;
+  border-radius:4px;text-decoration:none;color:var(--muted);font-size:14px;line-height:1.35
+}
+.rail a:hover{background:var(--sunk);color:var(--ink)}
+.rail .n{font-family:var(--f-mono);font-size:11.5px;color:var(--faint);flex:none;width:12px}
+.rail a.is-done .n::after{content:"✓";color:var(--accent)}
+.rail a.is-done .n{font-size:0}
+.rail a.is-done{color:var(--faint);text-decoration:line-through;text-decoration-color:var(--line)}
+
+main{padding-top:44px;min-width:0}
+
+/* ---------- generic blocks ---------- */
+h2{
+  font-family:var(--f-display);font-weight:600;font-size:1.5rem;line-height:1.2;
+  letter-spacing:-.01em;margin:0;text-wrap:balance
+}
+h3{font-family:var(--f-body);font-weight:700;font-size:1rem;margin:0 0 6px}
+p{margin:0;max-width:66ch}
+main section{margin-bottom:56px}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+.sec-head{
+  display:flex;align-items:baseline;gap:14px;
+  padding-bottom:10px;margin-bottom:20px;border-bottom:1px solid var(--line-soft)
+}
+.sec-head .kicker{
+  font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--faint);margin-left:auto;flex:none
+}
+
+/* ---------- requisitos ---------- */
+.reqs{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--line-soft);border:1px solid var(--line-soft)}
+.req{background:var(--surface);padding:16px 18px}
+.req .name{font-family:var(--f-mono);font-weight:600;font-size:14px;margin:0 0 4px}
+.req .why{color:var(--muted);font-size:14px;line-height:1.45;margin:0}
+.req .how{margin:8px 0 0;font-size:13px}
+
+/* ---------- pasos ---------- */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.step{
+  background:var(--surface);border:1px solid var(--line-soft);
+  padding:22px 24px 24px;box-shadow:var(--shadow)
+}
+.step.is-done{background:transparent;border-color:var(--line-soft);opacity:.62}
+.step-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+.num{
+  flex:none;font-family:var(--f-mono);font-weight:600;font-size:12px;
+  width:26px;height:26px;display:grid;place-items:center;margin-top:1px;
+  color:var(--accent);background:var(--accent-soft);border-radius:50%;
+}
+.step.is-done .num{color:var(--surface);background:var(--accent)}
+.step-head h2{flex:1;font-size:1.28rem}
+.done-btn{
+  flex:none;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--faint);background:none;
+  border:1px solid var(--line);border-radius:100px;padding:4px 11px;cursor:pointer;
+  transition:color .12s,border-color .12s
+}
+.done-btn:hover{color:var(--ink);border-color:var(--muted)}
+.step.is-done .done-btn{color:var(--accent);border-color:var(--accent)}
+.step-body{display:flex;flex-direction:column;gap:14px;padding-left:40px}
+@media (max-width:560px){.step-body{padding-left:0}.step{padding:18px 16px 20px}}
+
+/* ---------- comandos ---------- */
+.cmd{position:relative;background:var(--sunk);border:1px solid var(--line-soft);overflow-x:auto}
+.cmd pre{margin:0;padding:13px 15px;padding-right:74px}
+.cmd code{font-family:var(--f-mono);font-size:13.5px;line-height:1.75;white-space:pre;color:var(--ink)}
+.copy{
+  position:absolute;top:7px;right:8px;font-family:var(--f-mono);font-size:10.5px;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--faint);
+  background:var(--surface);border:1px solid var(--line);border-radius:3px;
+  padding:3px 8px;cursor:pointer
+}
+.copy:hover{color:var(--ink)}
+.copy.ok{color:var(--accent);border-color:var(--accent)}
+code.inl{
+  font-family:var(--f-mono);font-size:.86em;background:var(--sunk);
+  border:1px solid var(--line-soft);padding:1px 5px;border-radius:3px
+}
+
+/* ---------- callouts ---------- */
+.check,.note{
+  display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline;
+  padding:11px 14px;max-width:none;font-size:15px;line-height:1.5
+}
+.check{background:var(--accent-soft);border-left:3px solid var(--accent)}
+.note{background:var(--signal-soft);border-left:3px solid var(--signal)}
+.k{
+  font-family:var(--f-mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;white-space:nowrap
+}
+.check .k{color:var(--accent)}
+.note .k{color:var(--signal)}
+
+/* ---------- listas ---------- */
+ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;max-width:66ch}
+ul.plain li::marker{color:var(--faint)}
+
+/* ---------- tabla de fallos ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line-soft)}
+table{border-collapse:collapse;width:100%;min-width:560px;background:var(--surface)}
+th,td{text-align:left;padding:11px 15px;border-bottom:1px solid var(--line-soft);vertical-align:top;font-size:15px}
+th{
+  font-family:var(--f-mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);background:var(--sunk)
+}
+tbody tr:last-child td{border-bottom:none}
+td.sym{font-family:var(--f-mono);font-size:12.5px;color:var(--danger);white-space:nowrap;width:34%}
+td.sym.mild{color:var(--signal)}
+
+/* ---------- reglas ---------- */
+.rules{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line-soft)}
+.rule{display:grid;grid-template-columns:26px 1fr;gap:12px;padding:14px 0;border-bottom:1px solid var(--line-soft)}
+.rule .mark{font-family:var(--f-mono);font-size:15px;color:var(--danger);line-height:1.4}
+.rule p{font-size:15px}
+.rule b{font-weight:700}
+
+footer{
+  margin-top:12px;padding-top:22px;border-top:1px solid var(--line);
+  font-family:var(--f-mono);font-size:12px;color:var(--faint);
+  display:flex;flex-wrap:wrap;gap:6px 20px
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Semillero CABALAS · monitoreo acústico</p>
+    <h1>Puesta en marcha</h1>
+    <p class="lede">Cómo dejar corriendo en tu computador la base de datos de audios y sensores. Siete pasos, cada uno con su comprobación. Si quieres entender <em>por qué</em> está armado así, eso está en <code class="inl">DOCKER.md</code>.</p>
+    <div class="specs">
+      <span><b>145</b> grabaciones</span>
+      <span><b>36 h</b> de audio</span>
+      <span><b>15 min</b> por archivo · 44.1 kHz · 24 bit</span>
+      <span><b>2 160</b> lecturas de sensor</span>
+    </div>
+  </header>
+
+  <div class="shell">
+
+    <nav class="rail" aria-label="Índice de pasos">
+      <p class="rail-h">Pasos</p>
+      <ol id="rail-list">
+        <li><a href="#p1" data-for="p1"><span class="n">1</span>Bajar el proyecto</a></li>
+        <li><a href="#p2" data-for="p2"><span class="n">2</span>Audios en tu disco</a></li>
+        <li><a href="#p3" data-for="p3"><span class="n">3</span>Configurar el .env</a></li>
+        <li><a href="#p4" data-for="p4"><span class="n">4</span>Levantar la base</a></li>
+        <li><a href="#p5" data-for="p5"><span class="n">5</span>Comprobar</a></li>
+        <li><a href="#p6" data-for="p6"><span class="n">6</span>Cargar los datos</a></li>
+        <li><a href="#p7" data-for="p7"><span class="n">7</span>Usarlo</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ============ QUÉ ES ============ -->
+      <section>
+        <div class="sec-head"><h2>Qué es esto</h2></div>
+        <div class="stack">
+          <p>Una base de datos con la <b>información</b> de los audios: cuánto dura cada uno, cuánto pesa, de qué estación y qué día es, la temperatura y la humedad que había en ese momento, y el link para escucharlo.</p>
+          <p>Los <code class="inl">.wav</code> no se guardan aquí — siguen en OneDrive. Esta base guarda los datos <em>sobre</em> ellos, que es lo que permite buscar y filtrar sin descargar 16 GB cada vez.</p>
+        </div>
+      </section>
+
+      <!-- ============ REQUISITOS ============ -->
+      <section>
+        <div class="sec-head"><h2>Antes de empezar</h2><span class="kicker">una sola vez</span></div>
+        <div class="reqs">
+          <div class="req">
+            <p class="name">Docker Desktop</p>
+            <p class="why">Corre la base de datos.</p>
+            <p class="how"><a href="https://www.docker.com/products/docker-desktop/">docker.com</a></p>
+          </div>
+          <div class="req">
+            <p class="name">Python 3.11+</p>
+            <p class="why">Corre el script que carga los datos.</p>
+            <p class="how"><a href="https://www.python.org/downloads/">python.org</a> — marca <em>Add Python to PATH</em></p>
+          </div>
+          <div class="req">
+            <p class="name">ffmpeg</p>
+            <p class="why">Lee duración, formato y frecuencia de cada audio.</p>
+            <p class="how"><code class="inl">winget install Gyan.FFmpeg</code></p>
+          </div>
+          <div class="req">
+            <p class="name">Git</p>
+            <p class="why">Baja el proyecto y sus actualizaciones.</p>
+            <p class="how"><a href="https://git-scm.com/">git-scm.com</a></p>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:16px">
+          <p>Cierra y vuelve a abrir la terminal después de instalar, y comprueba que Windows los encuentra:</p>
+          <div class="cmd"><pre><code>docker --version
+python --version
+ffprobe -version</code></pre></div>
+          <p class="note"><span class="k">Ojo</span><span>Si alguno dice <em>“no se reconoce como un comando”</em>, no quedó en el PATH. Reinstálalo marcando la opción de agregarlo, o reinicia el computador.</span></p>
+        </div>
+      </section>
+
+      <!-- ============ PASOS ============ -->
+      <ol class="steps">
+
+        <li class="step" id="p1">
+          <div class="step-head">
+            <span class="num">1</span>
+            <h2>Bajar el proyecto</h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <div class="cmd"><pre><code>git clone &lt;url-del-repositorio&gt;
+cd Proyecto-git\db</code></pre></div>
+            <p>Todo lo demás se hace desde esa carpeta <code class="inl">db</code>.</p>
+          </div>
+        </li>
+
+        <li class="step" id="p2">
+          <div class="step-head">
+            <span class="num">2</span>
+            <h2>Tener los audios en tu disco</h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <p class="note"><span class="k">Léelo</span><span>Este es el paso donde todo el mundo se atasca.</span></p>
+            <p>El script lee archivos <b>locales</b>. Abrir la carpeta en el navegador no sirve: tiene que verse en el Explorador de Windows como una carpeta normal.</p>
+            <ul class="plain">
+              <li>Abre la app de <b>OneDrive</b> — el ícono de nube, abajo a la derecha.</li>
+              <li>Engranaje → <b>Configuración</b> → pestaña <b>Cuenta</b> → <b>Agregar una cuenta</b>.</li>
+              <li>Inicia sesión con tu correo <b>de la universidad</b>. Tu OneDrive personal y el institucional son cuentas distintas y se sincronizan por separado: si solo ves una carpeta llamada <code class="inl">OneDrive</code> a secas, esa es la personal y los audios no están ahí.</li>
+              <li>Abre la carpeta del semillero en el navegador y dale <b>Sincronizar</b> (o <em>Agregar acceso directo a Mis archivos</em>).</li>
+            </ul>
+            <p>Aparece una carpeta nueva, algo como <code class="inl">C:\Users\tú\OneDrive - Universidad\…\AudiosSemilleroCABALAS</code>.</p>
+            <p class="check"><span class="k">Comprobación</span><span>Ábrela en el Explorador. Debes ver adentro las carpetas de estación (<code class="inl">Estación 1</code>…), y dentro de cada una los <code class="inl">.wav</code> y los <code class="inl">.txt</code>.</span></p>
+            <p class="note"><span class="k">Espacio</span><span>Cada grabación pesa ~113 MB. Si OneDrive los deja “solo en la nube”, la primera carga los descarga y tarda. Para evitar sorpresas: clic derecho en la carpeta → <b>Conservar siempre en este dispositivo</b>.</span></p>
+          </div>
+        </li>
+
+        <li class="step" id="p3">
+          <div class="step-head">
+            <span class="num">3</span>
+            <h2>Configurar tu <code class="inl">.env</code></h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <div class="cmd"><pre><code>copy .env.example .env
+notepad .env</code></pre></div>
+            <p>Cambia <b>dos</b> líneas:</p>
+            <div class="cmd"><pre><code>POSTGRES_PASSWORD=semillero2026
+CARPETA_PROYECTO=C:\Users\TuUsuario\OneDrive - Universidad\...\AudiosSemilleroCABALAS</code></pre></div>
+            <p>Tres reglas que evitan casi todos los problemas:</p>
+            <ul class="plain">
+              <li><b>La contraseña, solo letras y números.</b> Nada de <code class="inl">$</code>, <code class="inl">#</code>, espacios ni comillas: Docker y Python los interpretan distinto y después la base te rechaza la clave.</li>
+              <li><b>Elígela ahora y no la cambies más.</b> La contraseña queda grabada dentro de la base la primera vez que se crea. Cambiarla luego en el <code class="inl">.env</code> no cambia la base — solo hace que dejen de coincidir.</li>
+              <li><b><code class="inl">CARPETA_PROYECTO</code> apunta a la carpeta que <em>contiene</em> las estaciones</b>, no a una estación. Sin comillas y sin barra al final.</li>
+            </ul>
+            <p class="check"><span class="k">Recuerda</span><span>El <code class="inl">.env</code> es tuyo y nunca se sube a git. Cada quien tiene el suyo, con su propia ruta y su propia clave.</span></p>
+          </div>
+        </li>
+
+        <li class="step" id="p4">
+          <div class="step-head">
+            <span class="num">4</span>
+            <h2>Levantar la base</h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <p>Con Docker Desktop <b>abierto</b> — espera a que el ícono de la ballena deje de moverse:</p>
+            <div class="cmd"><pre><code>docker compose up -d --build</code></pre></div>
+            <p>La primera vez tarda varios minutos: está descargando PostgreSQL. Después:</p>
+            <div class="cmd"><pre><code>docker compose ps</code></pre></div>
+            <p class="check"><span class="k">Comprobación</span><span><code class="inl">audios-db</code> debe decir <b>healthy</b>. Si dice <code class="inl">starting</code>, espera 20 segundos y repite. Si dice <code class="inl">exited</code>, mira <code class="inl">docker compose logs db</code>.</span></p>
+          </div>
+        </li>
+
+        <li class="step" id="p5">
+          <div class="step-head">
+            <span class="num">5</span>
+            <h2>Comprobar que quedó bien</h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <div class="cmd"><pre><code>docker compose exec db psql -U audios_admin -d audios -c "\dt"</code></pre></div>
+            <p class="check"><span class="k">Comprobación</span><span>Deben salir <b>7 tablas</b>: <code class="inl">almacenamiento</code>, <code class="inl">anotacion</code>, <code class="inl">audio</code>, <code class="inl">estacion</code>, <code class="inl">etiqueta</code>, <code class="inl">fuente</code>, <code class="inl">lectura_sensor</code>.</span></p>
+            <p>Si dice <em>“Did not find any relations”</em>, la base se creó vacía. Se arregla rehaciendo el volumen:</p>
+            <div class="cmd"><pre><code>docker compose down -v
+docker compose up -d --build</code></pre></div>
+            <p class="note"><span class="k">Cuidado</span><span><code class="inl">-v</code> borra los datos. Es seguro ahora que la base está vacía; <b>no</b> lo corras cuando ya tengas anotaciones hechas.</span></p>
+          </div>
+        </li>
+
+        <li class="step" id="p6">
+          <div class="step-head">
+            <span class="num">6</span>
+            <h2>Cargar los datos</h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <div class="cmd"><pre><code>pip install -r requirements.txt
+python ingesta.py --dry-run</code></pre></div>
+            <p><code class="inl">--dry-run</code> no escribe nada: solo muestra lo que encontró.</p>
+            <p class="check"><span class="k">Comprobación</span><span>Debe listar tus audios con su duración, y tus sensores con humedad (%) y temperatura (°C) — cada <code class="inl">.txt</code> trae 15 lecturas, una por minuto.</span></p>
+            <p>Si se ve bien, carga primero los sensores. Son instantáneos:</p>
+            <div class="cmd"><pre><code>python ingesta.py --solo sensores</code></pre></div>
+            <p>Y después los audios. Este lee todos los archivos para calcular su huella, así que con 16 GB tarda varios minutos. Imprime una línea por archivo, así que vas viendo el avance:</p>
+            <div class="cmd"><pre><code>python ingesta.py --solo audio</code></pre></div>
+            <p>Puedes correrlo las veces que quieras: lo que ya está registrado se omite.</p>
+          </div>
+        </li>
+
+        <li class="step" id="p7">
+          <div class="step-head">
+            <span class="num">7</span>
+            <h2>Usarlo</h2>
+            <button class="done-btn" type="button">Hecho</button>
+          </div>
+          <div class="step-body">
+            <div>
+              <h3>Ver los links de los audios</h3>
+              <div class="cmd"><pre><code>python ingesta.py --links</code></pre></div>
+            </div>
+            <div>
+              <h3>Revisar que tu copia local y la base sigan coincidiendo</h3>
+              <div class="cmd"><pre><code>python ingesta.py --verificar</code></pre></div>
+            </div>
+            <div>
+              <h3>Consultar desde la terminal</h3>
+              <div class="cmd"><pre><code>docker compose exec db psql -U audios_admin -d audios</code></pre></div>
+              <p style="margin-top:10px">Adentro: <code class="inl">\x</code> para que la salida se lea vertical, <code class="inl">\q</code> para salir. Hay consultas listas para copiar en <code class="inl">ejemplos/consultas_ejemplo.sql</code>.</p>
+            </div>
+            <div>
+              <h3>Consultar sin terminal</h3>
+              <p>Abre <a href="http://localhost:8080">localhost:8080</a> y entra con motor <b>PostgreSQL</b>, servidor <b>db</b> — el nombre del servicio, no <code class="inl">localhost</code> — y el usuario, la clave y la base de tu <code class="inl">.env</code>.</p>
+            </div>
+          </div>
+        </li>
+
+      </ol>
+
+      <!-- ============ FALLOS ============ -->
+      <section id="fallos" style="margin-top:56px">
+        <div class="sec-head"><h2>Si algo falla</h2><span class="kicker">mensajes frecuentes</span></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Lo que ves</th><th>Qué pasa</th></tr></thead>
+            <tbody>
+              <tr><td class="sym mild">no se reconoce como un comando</td><td>Falta el PATH. Reinstala marcando “Add to PATH” y reabre la terminal.</td></tr>
+              <tr><td class="sym">cannot connect to the Docker daemon</td><td>Docker Desktop está cerrado. Ábrelo y espera a que arranque.</td></tr>
+              <tr><td class="sym">port is already allocated</td><td>Algo más usa el 5433. Cámbialo a <code class="inl">5434:5432</code> en <code class="inl">docker-compose.yml</code> y pon <code class="inl">PGPORT=5434</code> en el <code class="inl">.env</code>.</td></tr>
+              <tr><td class="sym">password authentication failed</td><td>El <code class="inl">.env</code> y la base no coinciden. Se arregla abajo, sin borrar nada.</td></tr>
+              <tr><td class="sym">esta carpeta no existe en este equipo</td><td><code class="inl">CARPETA_PROYECTO</code> está mal puesta. El propio error te lista las carpetas de OneDrive que sí encuentra.</td></tr>
+              <tr><td class="sym">la estación 'X' no está en la tabla estacion</td><td>El nombre de la carpeta no coincide con la tabla. Se arregla abajo.</td></tr>
+              <tr><td class="sym">Did not find any relations</td><td>La base se creó vacía. <code class="inl">docker compose down -v</code> y vuelve al paso 4.</td></tr>
+              <tr><td class="sym mild">ingesta.py parece colgado</td><td>No lo está: está leyendo gigabytes de audio. Déjalo trabajar.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="stack" style="margin-top:26px">
+          <div>
+            <h3>Arreglar la contraseña sin borrar nada</h3>
+            <div class="cmd"><pre><code>docker compose exec db psql -U audios_admin -d audios -c "ALTER USER audios_admin PASSWORD 'semillero2026';"</code></pre></div>
+            <p style="margin-top:10px">Y pon exactamente esa misma en el <code class="inl">.env</code>. Funciona sin pedirte clave porque <code class="inl">exec</code> entra desde dentro del contenedor.</p>
+          </div>
+          <div>
+            <h3>Agregar una estación nueva</h3>
+            <p style="margin-bottom:10px">Si aparece una carpeta <code class="inl">Estación 2</code>, la base tiene que saber que existe:</p>
+            <div class="cmd"><pre><code>docker compose exec db psql -U audios_admin -d audios -c "INSERT INTO estacion (codigo, nombre) VALUES ('EST2','Estación 2');"</code></pre></div>
+            <p class="check" style="margin-top:12px"><span class="k">Exacto</span><span>El <code class="inl">nombre</code> debe ser idéntico al de la carpeta: tildes, espacios y mayúsculas. Agrega también esa línea a <code class="inl">sql/02_semillas.sql</code> y súbela a git, para que a los demás les quede creada de una.</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ REGLAS ============ -->
+      <section id="reglas">
+        <div class="sec-head"><h2>Reglas del equipo</h2></div>
+        <div class="rules">
+          <div class="rule"><span class="mark">×</span><p><b>Nunca subas tu <code class="inl">.env</code> a git.</b> Tiene tu contraseña. Ya está en el <code class="inl">.gitignore</code>; no lo saques de ahí.</p></div>
+          <div class="rule"><span class="mark">×</span><p><b>No renombres las carpetas de estación</b> en OneDrive sin avisar. La base las identifica por nombre exacto y la ingesta deja de reconocerlas.</p></div>
+          <div class="rule"><span class="mark">×</span><p><b>No corras <code class="inl">docker compose down -v</code> con anotaciones cargadas.</b> Borra los datos. Para apagar sin perder nada: <code class="inl">docker compose stop</code>.</p></div>
+          <div class="rule"><span class="mark">✓</span><p><b>Antes de tocar algo pesado, respalda:</b><br><code class="inl">docker compose exec db pg_dump -U audios_admin audios &gt; respaldo.sql</code></p></div>
+        </div>
+      </section>
+
+      <!-- ============ DIARIO ============ -->
+      <section id="diario">
+        <div class="sec-head"><h2>Comandos de uso diario</h2></div>
+        <div class="cmd"><pre><code>docker compose up -d           # encender
+docker compose stop            # apagar (los datos quedan)
+docker compose ps              # ver estado
+docker compose logs -f db      # ver qué está pasando (Ctrl+C para salir)
+
+python ingesta.py              # cargar lo nuevo
+python ingesta.py --verificar  # revisar que todo cuadre
+python ingesta.py --links      # ver los links</code></pre></div>
+      </section>
+
+      <footer>
+        <span>Semillero CABALAS</span>
+        <span>El porqué de cada decisión: DOCKER.md</span>
+        <span>Consultas de ejemplo: ejemplos/consultas_ejemplo.sql</span>
+      </footer>
+
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = "cabalas-pasos-v1";
+
+  function leer() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function guardar(estado) {
+    try { localStorage.setItem(KEY, JSON.stringify(estado)); } catch (e) {}
+  }
+
+  var estado = leer();
+  var pasos = Array.prototype.slice.call(document.querySelectorAll(".step"));
+
+  function pintar(paso) {
+    var hecho = !!estado[paso.id];
+    paso.classList.toggle("is-done", hecho);
+    var btn = paso.querySelector(".done-btn");
+    if (btn) {
+      btn.textContent = hecho ? "✓ Hecho" : "Hecho";
+      btn.setAttribute("aria-pressed", hecho ? "true" : "false");
+    }
+    var link = document.querySelector('.rail a[data-for="' + paso.id + '"]');
+    if (link) link.classList.toggle("is-done", hecho);
+  }
+
+  pasos.forEach(function (paso) {
+    pintar(paso);
+    var btn = paso.querySelector(".done-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      estado[paso.id] = !estado[paso.id];
+      guardar(estado);
+      pintar(paso);
+    });
+  });
+
+  // Botón de copiar en cada bloque de comandos
+  document.querySelectorAll(".cmd").forEach(function (bloque) {
+    var code = bloque.querySelector("code");
+    if (!code) return;
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "copy";
+    btn.textContent = "Copiar";
+    btn.addEventListener("click", function () {
+      var texto = code.textContent.replace(/[ \t]*#[^\n]*/g, "").trimEnd();
+      var listo = function () {
+        btn.textContent = "Copiado";
+        btn.classList.add("ok");
+        setTimeout(function () {
+          btn.textContent = "Copiar";
+          btn.classList.remove("ok");
+        }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(listo, function () {});
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = texto;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); listo(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    });
+    bloque.appendChild(btn);
+  });
+})();
+</script>

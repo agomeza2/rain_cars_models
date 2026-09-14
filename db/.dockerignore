@@ -1,0 +1,20 @@
+# Lo que NO se manda al construir la imagen.
+#
+# El "contexto de build" es todo lo que Docker copia antes de ejecutar el
+# Dockerfile. Sin este archivo, se enviarían también el .env con la contraseña,
+# las consultas de ejemplo y la caché de Python. Nada de eso tiene por qué estar
+# dentro de la imagen que se comparte.
+
+.env
+*.env
+!.env.example
+
+ejemplos/
+DOCKER.md
+ingesta.py
+requirements.txt
+
+__pycache__/
+*.pyc
+.venv/
+venv/
