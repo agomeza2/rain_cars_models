@@ -1,0 +1,49 @@
+name: pipeline-audio-kaggle
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # corre cada 10 minutos, solo, sin que vos hagas nada
+  workflow_dispatch: {}       # también podés dispararlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write             # necesario para que la Action pueda commitear estado.json
+
+# evita que dos corridas se pisen si una tarda más de 10 minutos
+concurrency:
+  group: pipeline-audio-kaggle
+  cancel-in-progress: false
+
+jobs:
+  step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # margen bajo el límite de 6h por job de GitHub Actions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install kaggle requests
+
+      - name: Configurar credenciales de Kaggle
+        run: |
+          mkdir -p ~/.kaggle
+          echo '{"username":"${{ secrets.KAGGLE_USERNAME }}","key":"${{ secrets.KAGGLE_KEY }}"}' > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+
+      - name: Ejecutar un paso del orquestador
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KAGGLE_USUARIO: ${{ secrets.KAGGLE_USERNAME }}
+        run: python3 kaggle-pipeline/scripts/orchestrator_step.py
+
+      - name: Guardar estado actualizado
+        run: |
+          git config user.name "pipeline-bot"
+          git config user.email "pipeline-bot@users.noreply.github.com"
+          git add kaggle-pipeline/estado.json
+          git diff --cached --quiet || git commit -m "estado: actualizado por Action [skip ci]"
+          git push

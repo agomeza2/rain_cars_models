@@ -1,0 +1,14 @@
+{
+  "ownerSlug": "alexgomez12",
+  "modelSlug": "audio-CNN-DEEP-rain-car",
+  "instanceSlug": "modelo fundacional",
+  "framework": "pytorch",
+  "overview": "",
+  "usage": "# Model Format\n\n# Training Data\n\n# Model Inputs\n\n# Model Outputs\n\n# Model Usage\n\n# Fine-tuning\n\n# Changelog\n",
+  "licenseName": "Apache 2.0",
+  "fineTunable": true,
+  "trainingData": [],
+  "modelInstanceType": "Unspecified",
+  "baseModelInstanceId": 0,
+  "externalBaseModelUrl": ""
+}

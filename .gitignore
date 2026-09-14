@@ -7,3 +7,5 @@ env/
 *.wav
 *.mp3
 *.pth
+*.parquet
+*.txt

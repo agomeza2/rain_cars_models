@@ -1,0 +1,14 @@
+{
+  "id": "alexgomez12/fase3-pseudolabel",
+  "title": "fase3-pseudolabel",
+  "code_file": "pseudolabel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["alexgomez12/datos_iniciales_raw"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": ["alexgomez12/audio-CNN-DEEP-rain-car/pytorch/modelo fundacional/1"]
+}
