@@ -1,23 +1,37 @@
+```python
 """
-Ejecuta UN paso del pipeline y termina. Pensado para ser invocado por el
-workflow de GitHub Actions cada ~10 minutos (cron). No hay ningún proceso
-"corriendo siempre" — cada corrida del workflow es stateless salvo por
-`estado.json`, que se lee al inicio, se actualiza, y el workflow lo
-commitea de vuelta al repo al final.
+Ejecuta UN paso del pipeline y termina.
 
-Filosofía: cada llamado hace como mucho UNA transición de estado (lanzar
-un kernel, chequear si terminó, chequear si llegó la aprobación de
-Telegram, etc.) y sale. Si no hay nada que avanzar todavía (kernel sigue
-corriendo, no llegó el /aprobado), no hace nada y el próximo cron run
-vuelve a chequear.
+Pensado para ser invocado por GitHub Actions cada ~10 minutos.
+No hay ningún proceso corriendo siempre: cada corrida es stateless
+salvo por estado.json.
+
+Cada llamado hace como mucho UNA transición de estado:
+- lanzar un kernel
+- chequear si terminó
+- chequear aprobación de Telegram
+- procesar output
+- avanzar al siguiente lote
+
+Si no hay nada que avanzar todavía, no hace nada y el próximo
+cron vuelve a comprobar.
 
 IMPORTANTE:
+Los nombres reales de los scripts son:
+
+    fase3_pseudolabel/pseudolabel.py
+    fase4_finetune/finetune.py
+    fase5_full_csv/full_csv.py
+
 Fase 3 NO utiliza lote_actual.txt.
 
-El número de lote se inyecta directamente en fase3_pseudolabel/script.py
-antes de hacer `kaggle kernels push`.
-"""
+El lote se incrusta temporalmente en pseudolabel.py mediante:
 
+    LOTE_ACTUAL = N  # ORQUESTADOR_LOTE
+
+El archivo modificado NO se commitea a GitHub.
+Solo se utiliza para hacer el kaggle kernels push.
+"""
 
 import json
 import os
@@ -33,64 +47,40 @@ import requests
 # CONFIG
 # =========================================================
 
-USUARIO = os.environ.get(
-    "KAGGLE_USERNAME",
-    "TU_USUARIO",
-)
+USUARIO = os.environ.get("KAGGLE_USERNAME", "TU_USUARIO")
 
 MODEL_SLUG = "audio-CNN-DEEP-rain-car"
 MODEL_FRAMEWORK = "pytorch"
 MODEL_INSTANCE = "modelo fundacional"
 
-DATASET_AUDIOS = (
-    f"{USUARIO}/datos_iniciales_raw"
-)
+DATASET_AUDIOS = f"{USUARIO}/datos_iniciales_raw"
 
 TOTAL_LOTES = 8
-# Debe coincidir con TOTAL_LOTES en fase3_pseudolabel/script.py.
 
 
-# =========================================================
-# TELEGRAM
-# =========================================================
-
-TELEGRAM_BOT_TOKEN = os.environ[
-    "TELEGRAM_BOT_TOKEN"
-]
-
-TELEGRAM_CHAT_ID = os.environ[
-    "TELEGRAM_CHAT_ID"
-]
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 
 # =========================================================
 # RUTAS
 # =========================================================
 
-REPO_ROOT = (
-    Path(__file__).parent.parent
-)
+REPO_ROOT = Path(__file__).parent.parent
 
-FASE3_DIR = (
-    REPO_ROOT / "fase3_pseudolabel"
-)
+FASE3_DIR = REPO_ROOT / "fase3_pseudolabel"
+FASE4_DIR = REPO_ROOT / "fase4_finetune"
+FASE5_DIR = REPO_ROOT / "fase5_full_csv"
 
-FASE4_DIR = (
-    REPO_ROOT / "fase4_finetune"
-)
+FASE3_SCRIPT = FASE3_DIR / "pseudolabel.py"
+FASE4_SCRIPT = FASE4_DIR / "finetune.py"
+FASE5_SCRIPT = FASE5_DIR / "full_csv.py"
 
-FASE5_DIR = (
-    REPO_ROOT / "fase5_full_csv"
-)
+STATE_FILE = REPO_ROOT / "estado.json"
 
-STATE_FILE = (
-    REPO_ROOT / "estado.json"
-)
-
-TMP_DIR = Path(
-    "/tmp/pipeline_tmp"
-)
-# Efímero del runner. No se commitea.
+# Directorio temporal del runner.
+# NO se commitea.
+TMP_DIR = Path("/tmp/pipeline_tmp")
 
 
 # =========================================================
@@ -98,10 +88,7 @@ TMP_DIR = Path(
 # =========================================================
 
 def telegram_send(msg: str):
-    url = (
-        f"https://api.telegram.org/"
-        f"bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    )
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
     requests.post(
         url,
@@ -113,27 +100,18 @@ def telegram_send(msg: str):
     )
 
 
-def telegram_check_once(
-    command_prefix: str,
-    state: dict,
-) -> bool:
+def telegram_check_once(command_prefix: str, state: dict) -> bool:
     """
-    Chequeo NO bloqueante: ¿llegó un mensaje que empiece
-    con command_prefix desde el último offset guardado?
+    Chequeo NO bloqueante.
 
-    Actualiza el offset en state siempre, haya o no match,
-    para no reprocesar mensajes viejos.
+    Busca mensajes nuevos de Telegram desde el último offset guardado.
+    Actualiza el offset aunque no encuentre el comando para no
+    reprocesar mensajes viejos.
     """
 
-    url = (
-        f"https://api.telegram.org/"
-        f"bot{TELEGRAM_BOT_TOKEN}/getUpdates"
-    )
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
 
-    last_offset = state.get(
-        "telegram_offset",
-        0,
-    )
+    last_offset = state.get("telegram_offset", 0)
 
     r = requests.get(
         url,
@@ -144,45 +122,28 @@ def telegram_check_once(
         timeout=20,
     )
 
-    updates = r.json().get(
-        "result",
-        [],
-    )
+    r.raise_for_status()
+
+    updates = r.json().get("result", [])
 
     found = False
 
     for u in updates:
+        state["telegram_offset"] = u["update_id"]
 
-        state["telegram_offset"] = (
-            u["update_id"]
-        )
-
-        msg = u.get(
-            "message",
-            {},
-        )
+        msg = u.get("message", {})
 
         chat_id = str(
-            msg.get(
-                "chat",
-                {},
-            ).get(
-                "id",
-                "",
-            )
+            msg.get("chat", {}).get("id", "")
         )
 
-        text = msg.get(
-            "text",
-            "",
-        )
+        text = msg.get("text", "")
 
         if (
-            chat_id
-            == str(TELEGRAM_CHAT_ID)
-            and text.strip()
-            .lower()
-            .startswith(command_prefix)
+            chat_id == str(TELEGRAM_CHAT_ID)
+            and text.strip().lower().startswith(
+                command_prefix.lower()
+            )
         ):
             found = True
 
@@ -194,6 +155,11 @@ def telegram_check_once(
 # =========================================================
 
 def load_state():
+    if not STATE_FILE.exists():
+        raise FileNotFoundError(
+            f"No existe el archivo de estado: {STATE_FILE}"
+        )
+
     return json.loads(
         STATE_FILE.read_text()
     )
@@ -204,6 +170,7 @@ def save_state(state):
         json.dumps(
             state,
             indent=2,
+            ensure_ascii=False,
         )
     )
 
@@ -213,10 +180,11 @@ def save_state(state):
 # =========================================================
 
 def run(cmd, check=True):
+    """
+    Ejecuta un comando y muestra stdout/stderr.
+    """
 
-    print(
-        f"$ {' '.join(cmd)}"
-    )
+    print(f"$ {' '.join(cmd)}")
 
     proc = subprocess.run(
         cmd,
@@ -224,16 +192,15 @@ def run(cmd, check=True):
         text=True,
     )
 
-    print(
-        proc.stdout[-3000:]
-    )
+    if proc.stdout:
+        print(proc.stdout[-5000:])
 
     if proc.returncode != 0:
-
-        print(
-            proc.stderr[-3000:],
-            file=sys.stderr,
-        )
+        if proc.stderr:
+            print(
+                proc.stderr[-5000:],
+                file=sys.stderr,
+            )
 
         if check:
             raise RuntimeError(
@@ -244,13 +211,27 @@ def run(cmd, check=True):
 
 
 def kernel_id(kernel_dir: Path) -> str:
+    """
+    Obtiene el ID real del kernel desde kernel-metadata.json.
+    """
 
-    meta_id = json.loads(
-        (
-            kernel_dir
-            / "kernel-metadata.json"
-        ).read_text()
-    )["id"]
+    meta_path = kernel_dir / "kernel-metadata.json"
+
+    if not meta_path.exists():
+        raise FileNotFoundError(
+            f"No existe kernel-metadata.json: {meta_path}"
+        )
+
+    meta = json.loads(
+        meta_path.read_text()
+    )
+
+    if "id" not in meta:
+        raise RuntimeError(
+            f"kernel-metadata.json no contiene 'id': {meta_path}"
+        )
+
+    meta_id = meta["id"]
 
     return meta_id.replace(
         "TU_USUARIO",
@@ -258,9 +239,17 @@ def kernel_id(kernel_dir: Path) -> str:
     )
 
 
-def kernel_status(
-    kernel_dir: Path,
-) -> str:
+def kernel_status(kernel_dir: Path) -> str:
+    """
+    Devuelve:
+
+        complete
+        error
+        cancelled
+        running
+        queued
+        unknown
+    """
 
     out = run(
         [
@@ -285,15 +274,27 @@ def kernel_status(
     )
 
 
+# =========================================================
+# DATASETS
+# =========================================================
+
 def dataset_upsert(
     local_dir: Path,
     dataset_id: str,
     title: str,
 ):
+    """
+    Crea el dataset si no existe.
+    Si existe, crea una nueva versión.
+    """
+
+    local_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     meta_path = (
-        local_dir
-        / "dataset-metadata.json"
+        local_dir / "dataset-metadata.json"
     )
 
     run(
@@ -307,6 +308,11 @@ def dataset_upsert(
         check=False,
     )
 
+    if not meta_path.exists():
+        raise FileNotFoundError(
+            f"No se generó dataset-metadata.json en {local_dir}"
+        )
+
     meta = json.loads(
         meta_path.read_text()
     )
@@ -318,10 +324,10 @@ def dataset_upsert(
         json.dumps(
             meta,
             indent=2,
+            ensure_ascii=False,
         )
     )
 
-    # Crear o versionar según si ya existe.
     exists = run(
         [
             "kaggle",
@@ -334,11 +340,9 @@ def dataset_upsert(
 
     if (
         "404" in exists
-        or "not found"
-        in exists.lower()
+        or "not found" in exists.lower()
         or exists.strip() == ""
     ):
-
         run(
             [
                 "kaggle",
@@ -350,9 +354,7 @@ def dataset_upsert(
                 "zip",
             ]
         )
-
     else:
-
         run(
             [
                 "kaggle",
@@ -368,11 +370,14 @@ def dataset_upsert(
         )
 
 
+# =========================================================
+# MODELOS
+# =========================================================
+
 def model_new_version(
     local_dir: Path,
     notes: str,
 ):
-
     instance = (
         f"{USUARIO}/"
         f"{MODEL_SLUG}/"
@@ -396,45 +401,56 @@ def model_new_version(
     )
 
 
+# =========================================================
+# KERNEL METADATA
+# =========================================================
+
 def update_kernel_metadata(
     kernel_dir: Path,
     dataset_sources=None,
     model_sources=None,
 ):
+    """
+    Actualiza kernel-metadata.json sin cambiar los nombres
+    de los scripts.
+
+    Los kernels reales son:
+
+        fase3_pseudolabel
+        fase4_finetune
+        fase5_full_csv
+    """
 
     meta_path = (
-        kernel_dir
-        / "kernel-metadata.json"
+        kernel_dir / "kernel-metadata.json"
     )
+
+    if not meta_path.exists():
+        raise FileNotFoundError(
+            f"No existe kernel-metadata.json: {meta_path}"
+        )
 
     meta = json.loads(
         meta_path.read_text()
     )
 
-    if "TU_USUARIO" in meta.get(
-        "id",
-        "",
-    ):
-
+    if "TU_USUARIO" in meta.get("id", ""):
         meta["id"] = meta["id"].replace(
             "TU_USUARIO",
             USUARIO,
         )
 
     if dataset_sources is not None:
-        meta["dataset_sources"] = (
-            dataset_sources
-        )
+        meta["dataset_sources"] = dataset_sources
 
     if model_sources is not None:
-        meta["model_sources"] = (
-            model_sources
-        )
+        meta["model_sources"] = model_sources
 
     meta_path.write_text(
         json.dumps(
             meta,
             indent=2,
+            ensure_ascii=False,
         )
     )
 
@@ -443,43 +459,34 @@ def update_kernel_metadata(
 # FASE 3
 # =========================================================
 
-def preparar_script_fase3(
-    lote: int,
-):
+def preparar_script_fase3(lote: int):
     """
-    Inyecta el lote actual directamente en script.py.
+    Prepara fase3_pseudolabel/pseudolabel.py para el lote indicado.
 
-    No crea ningún archivo auxiliar.
+    NO crea lote_actual.txt.
 
-    El archivo original contiene:
+    Busca exactamente:
 
-        LOTE_ACTUAL = 1  # ORQUESTADOR_LOTE
+        LOTE_ACTUAL = N  # ORQUESTADOR_LOTE
 
-    y aquí se transforma temporalmente en:
+    y lo reemplaza por:
 
-        LOTE_ACTUAL = 3  # ORQUESTADOR_LOTE
-
-    si lote == 3.
-
-    GitHub Actions vuelve a hacer checkout limpio en cada ejecución,
-    por lo que este cambio temporal no se convierte en estado persistente.
+        LOTE_ACTUAL = <lote>  # ORQUESTADOR_LOTE
     """
 
-    script_path = (
-        FASE3_DIR / "script.py"
-    )
-
-    if not script_path.exists():
+    if not FASE3_SCRIPT.exists():
         raise FileNotFoundError(
-            f"No existe el script de Fase 3: "
-            f"{script_path}"
+            "No existe el script de Fase 3: "
+            f"{FASE3_SCRIPT}"
         )
 
-    script = script_path.read_text()
+    script = FASE3_SCRIPT.read_text()
 
     patron = re.compile(
-        r"^\s*LOTE_ACTUAL\s*=\s*\d+"
-        r"\s*#\s*ORQUESTADOR_LOTE\s*$",
+        r"^\s*"
+        r"LOTE_ACTUAL\s*=\s*\d+"
+        r"\s*#\s*ORQUESTADOR_LOTE"
+        r"\s*$",
         re.MULTILINE,
     )
 
@@ -488,22 +495,20 @@ def preparar_script_fase3(
         f"# ORQUESTADOR_LOTE"
     )
 
-    script_nuevo, cantidad = (
-        patron.subn(
-            reemplazo,
-            script,
-        )
+    script_nuevo, cantidad = patron.subn(
+        reemplazo,
+        script,
     )
 
     if cantidad != 1:
         raise RuntimeError(
-            "No se pudo actualizar LOTE_ACTUAL "
-            "en fase3_pseudolabel/script.py. "
-            "Debe existir exactamente una línea "
-            "con el comentario # ORQUESTADOR_LOTE."
+            "No se encontró exactamente una línea "
+            "'LOTE_ACTUAL = N # ORQUESTADOR_LOTE' "
+            f"en {FASE3_SCRIPT}. "
+            f"Encontradas: {cantidad}"
         )
 
-    script_path.write_text(
+    FASE3_SCRIPT.write_text(
         script_nuevo
     )
 
@@ -512,7 +517,7 @@ def preparar_script_fase3(
     )
 
     print(
-        f"Archivo: {script_path}"
+        f"Archivo: {FASE3_SCRIPT}"
     )
 
     print(
@@ -525,6 +530,9 @@ def preparar_script_fase3(
 # =========================================================
 
 def paso(state):
+    """
+    Ejecuta como máximo una transición de estado.
+    """
 
     fase = state["fase"]
     lote = state["num_lote"]
@@ -535,15 +543,20 @@ def paso(state):
 
     if fase == "fase3_por_lanzar":
 
+        print(
+            f"Preparando Fase 3 - lote "
+            f"{lote}/{TOTAL_LOTES}"
+        )
+
         # -------------------------------------------------
-        # Ya NO usamos lote_actual.txt.
+        # IMPORTANTE:
+        # Ya NO se crea lote_actual.txt.
         #
-        # El lote se inyecta directamente en script.py.
+        # El lote se escribe directamente dentro de
+        # pseudolabel.py.
         # -------------------------------------------------
 
-        preparar_script_fase3(
-            lote
-        )
+        preparar_script_fase3(lote)
 
         update_kernel_metadata(
             FASE3_DIR,
@@ -551,13 +564,37 @@ def paso(state):
                 DATASET_AUDIOS
             ],
             model_sources=[
-                f"{USUARIO}/"
-                f"{MODEL_SLUG}/"
-                f"{MODEL_FRAMEWORK}/"
-                f"{MODEL_INSTANCE}/"
-                f"{state['model_version']}"
+                (
+                    f"{USUARIO}/"
+                    f"{MODEL_SLUG}/"
+                    f"{MODEL_FRAMEWORK}/"
+                    f"{MODEL_INSTANCE}/"
+                    f"{state['model_version']}"
+                )
             ],
         )
+
+        # Mostrar información útil antes del push.
+
+        print(
+            "Kernel Fase 3:"
+        )
+
+        print(
+            kernel_id(FASE3_DIR)
+        )
+
+        print(
+            "Script Fase 3:"
+        )
+
+        print(
+            FASE3_SCRIPT
+        )
+
+        # -------------------------------------------------
+        # PUBLICAR EN KAGGLE
+        # -------------------------------------------------
 
         run(
             [
@@ -579,9 +616,8 @@ def paso(state):
             "fase3_corriendo"
         )
 
-
     # =====================================================
-    # FASE 3: ESPERAR
+    # FASE 3: CORRIENDO
     # =====================================================
 
     elif fase == "fase3_corriendo":
@@ -590,11 +626,19 @@ def paso(state):
             FASE3_DIR
         )
 
+        print(
+            f"Estado kernel Fase 3: {st}"
+        )
+
         if st == "complete":
 
             out_dir = (
-                TMP_DIR
-                / f"lote_{lote}"
+                TMP_DIR / f"lote_{lote}"
+            )
+
+            out_dir.mkdir(
+                parents=True,
+                exist_ok=True,
             )
 
             run(
@@ -609,21 +653,19 @@ def paso(state):
             )
 
             dataset_id = (
-                f"{USUARIO}/"
-                f"recortes-lote{lote}"
+                f"{USUARIO}/recortes-lote{lote}"
             )
 
             dataset_upsert(
                 out_dir,
                 dataset_id,
-                f"Recortes 5s lote "
-                f"{lote} (pseudo-labels)",
+                f"Recortes 5s lote {lote} "
+                "(pseudo-labels)",
             )
 
             telegram_send(
-                f"🟡 Fase 3 - lote {lote} "
-                f"- LISTO. Dataset: "
-                f"{dataset_id}\n"
+                f"🟡 Fase 3 - lote {lote} - "
+                f"LISTO. Dataset: {dataset_id}\n"
                 f"1) kaggle datasets download "
                 f"{dataset_id} -p ./revisar --unzip\n"
                 f"2) Corregí manifest.json / "
@@ -652,16 +694,15 @@ def paso(state):
                 f"revisá el kernel a mano."
             )
 
-            state["fase"] = (
-                "detenido"
-            )
+            state["fase"] = "detenido"
 
-        # Si sigue running/queued:
+        # running / queued:
         # no hacer nada.
-
+        #
+        # El siguiente cron vuelve a comprobar.
 
     # =====================================================
-    # ESPERAR APROBACIÓN
+    # ESPERANDO APROBACIÓN
     # =====================================================
 
     elif fase == "esperando_revision":
@@ -671,10 +712,13 @@ def paso(state):
             state,
         ):
 
+            print(
+                f"Aprobación recibida para lote {lote}"
+            )
+
             state["fase"] = (
                 "fase4_por_lanzar"
             )
-
 
     # =====================================================
     # FASE 4: LANZAR
@@ -683,8 +727,11 @@ def paso(state):
     elif fase == "fase4_por_lanzar":
 
         dataset_id = (
-            f"{USUARIO}/"
-            f"recortes-lote{lote}"
+            f"{USUARIO}/recortes-lote{lote}"
+        )
+
+        print(
+            f"Preparando Fase 4 - lote {lote}"
         )
 
         update_kernel_metadata(
@@ -693,12 +740,18 @@ def paso(state):
                 dataset_id
             ],
             model_sources=[
-                f"{USUARIO}/"
-                f"{MODEL_SLUG}/"
-                f"{MODEL_FRAMEWORK}/"
-                f"{MODEL_INSTANCE}/"
-                f"{state['model_version']}"
+                (
+                    f"{USUARIO}/"
+                    f"{MODEL_SLUG}/"
+                    f"{MODEL_FRAMEWORK}/"
+                    f"{MODEL_INSTANCE}/"
+                    f"{state['model_version']}"
+                )
             ],
+        )
+
+        print(
+            f"Script Fase 4: {FASE4_SCRIPT}"
         )
 
         run(
@@ -712,17 +765,16 @@ def paso(state):
         )
 
         telegram_send(
-            f"🔵 Fase 4 - lote {lote} "
-            f"- fine-tuning en Kaggle GPU"
+            f"🔵 Fase 4 - lote {lote} - "
+            f"fine-tuning en Kaggle GPU"
         )
 
         state["fase"] = (
             "fase4_corriendo"
         )
 
-
     # =====================================================
-    # FASE 4: ESPERAR
+    # FASE 4: CORRIENDO
     # =====================================================
 
     elif fase == "fase4_corriendo":
@@ -731,11 +783,20 @@ def paso(state):
             FASE4_DIR
         )
 
+        print(
+            f"Estado kernel Fase 4: {st}"
+        )
+
         if st == "complete":
 
             out_dir = (
                 TMP_DIR
                 / f"lote_{lote}_pth"
+            )
+
+            out_dir.mkdir(
+                parents=True,
+                exist_ok=True,
             )
 
             run(
@@ -794,9 +855,8 @@ def paso(state):
                 state["model_version"] += 1
 
                 telegram_send(
-                    f"🟢 Fase 4 - lote {lote} "
-                    f"- terminado. Modelo "
-                    f"versión "
+                    f"🟢 Fase 4 - lote {lote} - "
+                    f"terminado. Modelo versión "
                     f"{state['model_version']}"
                 )
 
@@ -829,12 +889,15 @@ def paso(state):
                 "detenido"
             )
 
-
     # =====================================================
     # FASE 5: LANZAR
     # =====================================================
 
     elif fase == "fase5_por_lanzar":
+
+        print(
+            "Preparando Fase 5"
+        )
 
         update_kernel_metadata(
             FASE5_DIR,
@@ -842,12 +905,18 @@ def paso(state):
                 DATASET_AUDIOS
             ],
             model_sources=[
-                f"{USUARIO}/"
-                f"{MODEL_SLUG}/"
-                f"{MODEL_FRAMEWORK}/"
-                f"{MODEL_INSTANCE}/"
-                f"{state['model_version']}"
+                (
+                    f"{USUARIO}/"
+                    f"{MODEL_SLUG}/"
+                    f"{MODEL_FRAMEWORK}/"
+                    f"{MODEL_INSTANCE}/"
+                    f"{state['model_version']}"
+                )
             ],
+        )
+
+        print(
+            f"Script Fase 5: {FASE5_SCRIPT}"
         )
 
         run(
@@ -861,18 +930,16 @@ def paso(state):
         )
 
         telegram_send(
-            "🔵 Fase 5 - clasificación "
-            "final del 100%, "
-            "generando CSVs cada 5s"
+            "🔵 Fase 5 - clasificación final "
+            "del 100%, generando CSVs cada 5s"
         )
 
         state["fase"] = (
             "fase5_corriendo"
         )
 
-
     # =====================================================
-    # FASE 5: ESPERAR
+    # FASE 5: CORRIENDO
     # =====================================================
 
     elif fase == "fase5_corriendo":
@@ -881,11 +948,20 @@ def paso(state):
             FASE5_DIR
         )
 
+        print(
+            f"Estado kernel Fase 5: {st}"
+        )
+
         if st == "complete":
 
             out_dir = (
                 TMP_DIR
                 / "csvs_finales"
+            )
+
+            out_dir.mkdir(
+                parents=True,
+                exist_ok=True,
             )
 
             run(
@@ -929,9 +1005,8 @@ def paso(state):
                 "detenido"
             )
 
-
     # =====================================================
-    # TERMINADO / DETENIDO
+    # DETENIDO / TERMINADO
     # =====================================================
 
     elif fase in (
@@ -939,8 +1014,16 @@ def paso(state):
         "detenido",
     ):
 
-        pass
+        print(
+            f"Pipeline en estado '{fase}'. "
+            f"No hay nada que hacer."
+        )
 
+    else:
+
+        raise RuntimeError(
+            f"Fase desconocida en estado.json: {fase}"
+        )
 
     return state
 
@@ -969,3 +1052,4 @@ if __name__ == "__main__":
     print(
         f"Estado nuevo: {state}"
     )
+```
