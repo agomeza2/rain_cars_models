@@ -1,4 +1,3 @@
-```python
 """
 Ejecuta UN paso del pipeline y termina.
 
@@ -1052,4 +1051,3 @@ if __name__ == "__main__":
     print(
         f"Estado nuevo: {state}"
     )
-```
