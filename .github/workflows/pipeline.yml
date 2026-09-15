@@ -15,6 +15,7 @@ concurrency:
 jobs:
   step:
     runs-on: ubuntu-latest
+
     timeout-minutes: 350
 
     env:
@@ -22,32 +23,48 @@ jobs:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Instalar dependencias
-        run: pip install kaggle requests
+        run: |
+          pip install kaggle requests
 
       - name: Verificar credenciales Kaggle
         run: |
-          test -n "$KAGGLE_USERNAME" || (echo "Falta KAGGLE_USERNAME" && exit 1)
-          test -n "$KAGGLE_API_TOKEN" || (echo "Falta KAGGLE_API_TOKEN" && exit 1)
+          test -n "$KAGGLE_USERNAME" || (
+            echo "Falta KAGGLE_USERNAME"
+            exit 1
+          )
+
+          test -n "$KAGGLE_API_TOKEN" || (
+            echo "Falta KAGGLE_API_TOKEN"
+            exit 1
+          )
+
           echo "Credenciales Kaggle detectadas correctamente"
 
       - name: Ejecutar un paso del orquestador
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python3 kaggle-pipeline/scripts/orchestrator_step.py
+        run: |
+          python3 kaggle-pipeline/scripts/orchestrator_step.py
 
       - name: Guardar estado actualizado
         run: |
           git config user.name "pipeline-bot"
           git config user.email "pipeline-bot@users.noreply.github.com"
-          git add kaggle-pipeline/estado.json
-          git diff --cached --quiet || git commit -m "estado: actualizado por Action [skip ci]"
-          git push
 
+          git add kaggle-pipeline/estado.json
+
+          git diff --cached --quiet || \
+            git commit -m "estado: actualizado por Action [skip ci]"
+
+          git push
