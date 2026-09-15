@@ -1,0 +1,12 @@
+# Dependencias del script de ingesta (no de la base: la base corre en Docker).
+#   pip install -r requirements.txt
+
+psycopg[binary]>=3.1     # cliente de PostgreSQL; [binary] evita compilar en Windows
+python-dotenv>=1.0       # lee el archivo .env
+pandas>=2.0              # arma los DataFrames que se exportan a parquet
+pyarrow>=14.0            # motor de escritura de .parquet (backend de pandas)
+tqdm>=4.66               # barra de progreso de la ingesta
+
+# Además hace falta ffprobe en el PATH. Viene con ffmpeg:
+#   winget install Gyan.FFmpeg
+# Comprobar con:  ffprobe -version
