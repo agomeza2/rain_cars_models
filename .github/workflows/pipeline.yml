@@ -2,13 +2,12 @@ name: pipeline-audio-kaggle
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # corre cada 10 minutos, solo, sin que vos hagas nada
-  workflow_dispatch: {}       # también podés dispararlo a mano desde la pestaña Actions
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
 
 permissions:
-  contents: write             # necesario para que la Action pueda commitear estado.json
+  contents: write
 
-# evita que dos corridas se pisen si una tarda más de 10 minutos
 concurrency:
   group: pipeline-audio-kaggle
   cancel-in-progress: false
@@ -16,7 +15,12 @@ concurrency:
 jobs:
   step:
     runs-on: ubuntu-latest
-    timeout-minutes: 350   # margen bajo el límite de 6h por job de GitHub Actions
+    timeout-minutes: 350
+
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,17 +31,16 @@ jobs:
       - name: Instalar dependencias
         run: pip install kaggle requests
 
-      - name: Configurar credenciales de Kaggle
+      - name: Verificar credenciales Kaggle
         run: |
-          mkdir -p ~/.kaggle
-          echo '{"username":"${{ secrets.KAGGLE_USERNAME }}","key":"${{ secrets.KAGGLE_API_TOKEN }}"}' > ~/.kaggle/kaggle.json
-          chmod 600 ~/.kaggle/kaggle.json
+          test -n "$KAGGLE_USERNAME" || (echo "Falta KAGGLE_USERNAME" && exit 1)
+          test -n "$KAGGLE_API_TOKEN" || (echo "Falta KAGGLE_API_TOKEN" && exit 1)
+          echo "Credenciales Kaggle detectadas correctamente"
 
       - name: Ejecutar un paso del orquestador
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          KAGGLE_USUARIO: ${{ secrets.KAGGLE_USERNAME }}
         run: python3 kaggle-pipeline/scripts/orchestrator_step.py
 
       - name: Guardar estado actualizado
@@ -47,3 +50,4 @@ jobs:
           git add kaggle-pipeline/estado.json
           git diff --cached --quiet || git commit -m "estado: actualizado por Action [skip ci]"
           git push
+
