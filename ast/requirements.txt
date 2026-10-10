@@ -1,0 +1,8 @@
+torch
+numpy
+transformers
+
+# Además hace falta ffmpeg en el PATH:
+#   Windows: winget install Gyan.FFmpeg
+#   Linux:   sudo apt install ffmpeg
+# Silero VAD se descarga solo con torch.hub la primera vez (no necesita pip).
